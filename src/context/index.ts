@@ -153,7 +153,11 @@ export async function writeContextFile(
 
   const outputFiles: string[] = [];
   if (documents.length === 1) {
-    await fs.writeFile(context.options.outputPath, documents[0].content, "utf-8");
+    await fs.writeFile(
+      context.options.outputPath,
+      documents[0].content,
+      "utf-8",
+    );
     outputFiles.push(context.options.outputPath);
   } else {
     const parsed = splitOutputPath(context.options.outputPath);
@@ -503,7 +507,10 @@ async function collectFileEntries(
 
       if (Buffer.byteLength(content, "utf-8") > options.maxFileSizeBytes) {
         fileEntry.truncated = true;
-        fileEntry.content = truncateUtf8Content(content, options.maxFileSizeBytes);
+        fileEntry.content = truncateUtf8Content(
+          content,
+          options.maxFileSizeBytes,
+        );
       } else {
         fileEntry.content = content;
       }
@@ -584,8 +591,14 @@ function renderContextDocuments(
   if (!options.splitOutputChars || options.splitOutputChars <= 0) {
     return [
       {
-        content: renderSingleDocument(context, context.files, options, undefined),
-        packedFiles: context.files.filter((file) => file.content !== undefined).length,
+        content: renderSingleDocument(
+          context,
+          context.files,
+          options,
+          undefined,
+        ),
+        packedFiles: context.files.filter((file) => file.content !== undefined)
+          .length,
       },
     ];
   }
@@ -623,15 +636,10 @@ function renderContextDocuments(
   }
 
   return chunks.map((chunk, index) => ({
-    content: renderSingleDocument(
-      context,
-      chunk,
-      options,
-      {
-        number: index + 1,
-        total: chunks.length,
-      },
-    ),
+    content: renderSingleDocument(context, chunk, options, {
+      number: index + 1,
+      total: chunks.length,
+    }),
     packedFiles: chunk.filter((file) => file.content !== undefined).length,
   }));
 }
@@ -659,8 +667,7 @@ function renderSingleDocument(
 
   const entryPoints = context.descriptor.entryPoints
     .map(
-      (entryPoint) =>
-        `      <entry path="${escapeAttribute(entryPoint)}" />`,
+      (entryPoint) => `      <entry path="${escapeAttribute(entryPoint)}" />`,
     )
     .join("\n");
 
@@ -711,10 +718,12 @@ function renderSingleDocument(
     .join("\n");
 
   const filesXml = files.map((file) => renderFileEntry(file)).join("\n");
-  const packedFileCount = files.filter((file) => file.content !== undefined).length;
+  const packedFileCount = files.filter(
+    (file) => file.content !== undefined,
+  ).length;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<project_context tool="project-health" version="2.0.0" generated_at="${escapeAttribute(context.generatedAt)}"${part ? ` part="${part.number}" total_parts="${part.total}"` : ""}>
+<project_context tool="project-health" version="3.0.0" generated_at="${escapeAttribute(context.generatedAt)}"${part ? ` part="${part.number}" total_parts="${part.total}"` : ""}>
   <file_summary>
     <purpose>This file contains an LLM-ready representation of the repository, including structure, repository metadata, and selected file contents.</purpose>
     <file_format>
@@ -751,10 +760,10 @@ ${context.headerText.trim() ? `  <user_provided_header><![CDATA[${escapeCdata(co
       name="${escapeAttribute(context.packageSummary.name)}"${context.packageSummary.version ? ` version="${escapeAttribute(context.packageSummary.version)}"` : ""}${context.packageSummary.packageManager ? ` package_manager="${escapeAttribute(context.packageSummary.packageManager)}"` : ""}
     >
       <scripts>
-${packageScripts || "        <script name=\"none\">none</script>"}
+${packageScripts || '        <script name="none">none</script>'}
       </scripts>
       <dependencies total="${context.packageSummary.dependencies.length}">
-${packageDependencies || "        <dependency scope=\"prod\" name=\"none\" version=\"n/a\" />"}
+${packageDependencies || '        <dependency scope="prod" name="none" version="n/a" />'}
       </dependencies>
     </package>
     <stats
@@ -767,21 +776,21 @@ ${packageDependencies || "        <dependency scope=\"prod\" name=\"none\" versi
       estimated_tokens="${context.stats.estimatedTokens}"
     />
     <languages>
-${languageStats || "      <language name=\"unknown\" files=\"0\" />"}
+${languageStats || '      <language name="unknown" files="0" />'}
     </languages>
     <categories>
-${categoryStats || "      <category name=\"other\" files=\"0\" />"}
+${categoryStats || '      <category name="other" files="0" />'}
     </categories>
     <entry_points>
-${entryPoints || "      <entry path=\"none\" />"}
+${entryPoints || '      <entry path="none" />'}
     </entry_points>
     <top_directories>
-${topDirectories || "      <directory name=\"root\" files=\"0\" />"}
+${topDirectories || '      <directory name="root" files="0" />'}
     </top_directories>
   </repository_info>
   <git_context available="${String(context.gitInfo.isRepo)}">
 ${context.gitInfo.branch ? `    <branch>${escapeXml(context.gitInfo.branch)}</branch>\n` : ""}${context.gitInfo.statusSummary ? `    <status modified="${context.gitInfo.statusSummary.modified}" staged="${context.gitInfo.statusSummary.staged}" created="${context.gitInfo.statusSummary.created}" deleted="${context.gitInfo.statusSummary.deleted}" renamed="${context.gitInfo.statusSummary.renamed}" conflicted="${context.gitInfo.statusSummary.conflicted}" untracked="${context.gitInfo.statusSummary.untracked}" />\n` : ""}    <remotes>
-${remotes || "      <remote name=\"none\" />"}
+${remotes || '      <remote name="none" />'}
     </remotes>
 ${context.gitInfo.recentLog ? `    <git_log><![CDATA[${escapeCdata(context.gitInfo.recentLog)}]]></git_log>\n` : ""}${context.gitInfo.worktreeDiff ? `    <worktree_diff><![CDATA[${escapeCdata(context.gitInfo.worktreeDiff)}]]></worktree_diff>\n` : ""}${context.gitInfo.stagedDiff ? `    <staged_diff><![CDATA[${escapeCdata(context.gitInfo.stagedDiff)}]]></staged_diff>\n` : ""}  </git_context>
   <directory_structure><![CDATA[${escapeCdata(context.directoryStructure)}]]></directory_structure>
@@ -958,7 +967,10 @@ function detectLanguage(filePath: string): string {
 
 function detectCategory(filePath: string): FileCategory {
   if (isSourceFile(filePath)) return "source";
-  if (isDocFile(filePath) || DOC_EXTENSIONS.has(extname(filePath).toLowerCase())) {
+  if (
+    isDocFile(filePath) ||
+    DOC_EXTENSIONS.has(extname(filePath).toLowerCase())
+  ) {
     return "documentation";
   }
   if (isConfigFile(filePath)) return "config";

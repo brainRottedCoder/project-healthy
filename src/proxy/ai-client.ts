@@ -15,7 +15,7 @@ import { config } from "dotenv";
 config();
 
 // Read the model from the environment first, then fall back to the documented default.
-export const MODEL = process.env.MEGALLM_MODEL?.trim() || "claude-sonnet-4-6";
+export const MODEL = process.env.MEGALLM_MODEL?.trim() || "openai-gpt-oss-120b";
 
 export const DEPLOYED_BACKEND_URL = "https://project-healthy.vercel.app/v1";
 

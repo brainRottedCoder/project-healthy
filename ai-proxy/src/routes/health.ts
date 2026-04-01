@@ -8,7 +8,7 @@ router.get("/health", (_req: Request, res: Response) => {
   res.json({
     status: "ok",
     service: "project-health-backend",
-    version: "2.0.0",
+    version: "3.0.0",
     model: MODEL,
     baseUrl: BASE_URL,
     rateLimit: config.rateLimitRpm,

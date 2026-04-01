@@ -31,7 +31,7 @@ describe("AI Client", () => {
       vi.resetModules();
 
       const { MODEL } = await import("../src/proxy/ai-client.js");
-      expect(MODEL).toBe("claude-sonnet-4-6");
+      expect(MODEL).toBe("openai-gpt-oss-120b");
     });
 
     it("prefers MEGALLM_MODEL when it is provided", async () => {

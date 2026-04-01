@@ -13,13 +13,15 @@ const ACCENT = "#b4befe";
 const TEXT = "#cdd6f4";
 const DIM = "#3d4466";
 const BORDER = "#1e2330";
+const SUCCESS = "#a6e3a1";
+const INFO = "#89b4fa";
 
 const BANNER = `
-${chalk.hex(BORDER)("╭" + "─".repeat(55) + "╮")}
-${chalk.hex(BORDER)("│")}  ${chalk.hex(ACCENT).bold("project-health")} ${chalk.hex(TEXT).bold("interactive shell")}                   ${chalk.hex(BORDER)("│")}
-${chalk.hex(BORDER)("│")}  ${chalk.hex(DIM)("Type a command to run it. 'help' lists all commands.")}  ${chalk.hex(BORDER)("│")}
-${chalk.hex(BORDER)("│")}  ${chalk.hex(DIM)("Press Ctrl+C or type 'exit' to quit.")}                  ${chalk.hex(BORDER)("│")}
-${chalk.hex(BORDER)("╰" + "─".repeat(55) + "╯")}
+${chalk.hex(BORDER)("\u2554" + "\u2550".repeat(61) + "\u2557")}
+${chalk.hex(BORDER)("\u2551")}   ${chalk.hex(ACCENT).bold("project-health")} ${chalk.hex(TEXT)("interactive shell")}                           ${chalk.hex(BORDER)("\u2551")}
+${chalk.hex(BORDER)("\u2551")}   ${chalk.hex(DIM)("Type a command to run it. 'help' lists all commands.")}            ${chalk.hex(BORDER)("\u2551")}
+${chalk.hex(BORDER)("\u2551")}   ${chalk.hex(DIM)("Press Ctrl+C or type 'exit' to quit.")}                           ${chalk.hex(BORDER)("\u2551")}
+${chalk.hex(BORDER)("\u255a" + "\u2550".repeat(61) + "\u255d")}
 `;
 
 // ─── Command catalogue (name → short description) ───────────────────────────

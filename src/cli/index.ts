@@ -1716,9 +1716,12 @@ program
     }
   });
 
-// Version
+// Version — read dynamically from package.json
+const _pkgJson = JSON.parse(
+  readFileSync(join(import.meta.dirname, "..", "..", "package.json"), "utf-8"),
+);
 program
-  .version("2.0.0")
+  .version(_pkgJson.version)
   .name("ph")
   .description("AI-powered health score for software repositories");
 

@@ -29,7 +29,7 @@ app.use("/v1", chatRoutes); // POST /v1/chat/*
 app.get("/", (_req, res) => {
   res.json({
     service: "project-health-backend",
-    version: "2.0.0",
+    version: "3.0.0",
     endpoints: [
       "GET  /health",
       "POST /v1/chat/completions",
@@ -49,7 +49,7 @@ app.use(errorHandler);
 app.listen(config.port, "0.0.0.0", () => {
   console.log("");
   console.log("  ┌──────────────────────────────────────────┐");
-  console.log("  │    Project Health Backend v2.0.0         │");
+  console.log("  │    Project Health Backend v3.0.0         │");
   console.log("  └──────────────────────────────────────────┘");
   console.log("");
   console.log(`  →  http://localhost:${config.port}`);

@@ -10,6 +10,7 @@
 
 import chalk from "chalk";
 import * as readline from "node:readline";
+import { intro, outro, spinner, log } from "@clack/prompts";
 import {
   Severity,
   Finding,
@@ -739,6 +740,8 @@ export interface InitStep {
   run: () => Promise<string>;
 }
 
+// ── ANSI Colour Block Logo (pixel-art style) ─────────────────────────────
+
 const LOGO = `
   ██████╗ ██╗  ██╗
   ██╔══██╗██║  ██║
@@ -748,20 +751,36 @@ const LOGO = `
   ╚═╝     ╚═╝  ╚═╝
 `.trimStart();
 
-const PROJECT_HEALTH_LOGO = `
-  PPPP   RRRR    OOO    JJJJ  EEEEE   CCCC  TTTTT         H   H  EEEEE   A    L      TTTTT  H   H
-  P   P  R   R  O   O     J   E      C        T           H   H  E      A A   L        T    H   H
-  PPPP   RRRR   O   O     J   EEEE   C        T           HHHHH  EEEE  AAAAA  L        T    HHHHH
-  P      R  R   O   O  J  J   E      C        T           H   H  E     A   A  L        T    H   H
-  P      R   R   OOO    JJ    EEEEE   CCCC    T           H   H  EEEEE A   A  LLLLL    T    H   H
-`.trimStart();
+// ── Large ASCII Art Header for "project-health" ──────────────────────────
 
-const PROJECT_HEALTH_LOGO_PALETTE = [
+const PH_ASCII_ART = [
+  "  ╔═══════════════════════════════════════════════════════════════════════╗",
+  "  ║                                                                       ║",
+  "  ║    ██████╗ ██████╗  ██████╗      ██╗███████╗ ██████╗████████╗         ║",
+  "  ║    ██╔══██╗██╔══██╗██╔═══██╗     ██║██╔════╝██╔════╝╚══██╔══╝         ║",
+  "  ║    ██████╔╝██████╔╝██║   ██║     ██║█████╗  ██║        ██║            ║",
+  "  ║    ██╔═══╝ ██╔══██╗██║   ██║██   ██║██╔══╝  ██║        ██║            ║",
+  "  ║    ██║     ██║  ██║╚██████╔╝╚█████╔╝███████╗╚██████╗   ██║            ║",
+  "  ║    ╚═╝     ╚═╝  ╚═╝ ╚═════╝  ╚════╝ ╚══════╝ ╚═════╝   ╚═╝            ║",
+  "  ║                                                                       ║",
+  "  ║           ██╗  ██╗███████╗ █████╗ ██╗  ████████╗██╗  ██╗              ║",
+  "  ║           ██║  ██║██╔════╝██╔══██╗██║  ╚══██╔══╝██║  ██║              ║",
+  "  ║           ███████║█████╗  ███████║██║     ██║   ███████║              ║",
+  "  ║           ██╔══██║██╔══╝  ██╔══██║██║     ██║   ██╔══██║              ║",
+  "  ║           ██║  ██║███████╗██║  ██║███████╗██║   ██║  ██║              ║",
+  "  ║           ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝╚═╝   ╚═╝  ╚═╝              ║",
+  "  ║                                                                       ║",
+  "  ╚═══════════════════════════════════════════════════════════════════════╝",
+] as const;
+
+const PH_ASCII_PALETTE = [
   "#f38ba8",
   "#fab387",
   "#f9e2af",
   "#a6e3a1",
   "#74c7ec",
+  "#89b4fa",
+  "#cba6f7",
 ] as const;
 
 // ── Modern banner for CLI launch ─────────────────────────────────────────
@@ -817,62 +836,68 @@ export function showBanner(): void {
 }
 
 export async function renderInit(steps: InitStep[]): Promise<void> {
-  // Logo
-  PROJECT_HEALTH_LOGO.split("\n").forEach((line, index) => {
-    process.stdout.write(
-      chalk
-        .hex(
-          PROJECT_HEALTH_LOGO_PALETTE[
-            index % PROJECT_HEALTH_LOGO_PALETTE.length
-          ],
-        )
-        .bold(line) + "\n",
-    );
-  });
-
+  // Large ASCII art header
   process.stdout.write("\n");
+  for (const line of PH_ASCII_ART) {
+    process.stdout.write(gradientLine(line, PH_ASCII_PALETTE) + "\n");
+  }
   process.stdout.write(
-    `  ${chalk.bgHex(THEME.accent).hex("#0b0d12").bold(" INIT ")}  ` +
-      `${chalk.hex(THEME.accent).bold("PROJECT-HEALTH")}  ${chalk.dim("v2.0.0")}\n`,
+    `  ${chalk.hex(THEME.accent).bold("project-health")}  ${chalk.dim("v2.0.0")}  ${chalk.dim("·")}  ${chalk.hex(THEME.dimMeta)("AI-powered codebase intelligence")}\n`,
   );
-  process.stdout.write(
-    `  ${chalk.hex(THEME.info)("designer CLI setup")}  ${chalk.dim("cache, config, hooks, ready state")}\n`,
-  );
-  process.stdout.write(
-    `  ${chalk.dim("codebase intelligence with a polished first-run experience")}\n`,
-  );
-  process.stdout.write("\n");
-  process.stdout.write("  " + rule() + "\n");
   process.stdout.write("\n");
 
-  // Steps
-  for (const step of steps) {
-    process.stdout.write(
-      `  ${chalk.dim("⠋")}  ${chalk.hex(THEME.text)(step.label)}`,
+  // Clack intro
+  intro(chalk.hex(THEME.accent)("Setting up project-health"));
+
+  const s = spinner();
+  let allPassed = true;
+  const results: string[] = [];
+
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+    const current = i + 1;
+    const total = steps.length;
+
+    s.start(
+      `${chalk.hex(THEME.sectionLabel)(`[${current}/${total}]`)} ${chalk.hex(THEME.text)(step.label)}`,
     );
 
     try {
       const msg = await step.run();
-      // Clear line + rewrite with ✓
-      process.stdout.write(
-        `\r  ${chalk.hex(THEME.success)("✓")}  ${chalk.hex(THEME.text)(step.label)}  ${chalk.dim(msg)}\n`,
-      );
+      s.stop(chalk.hex(THEME.success)(`✓ ${step.label}`));
+      log.message(chalk.dim(`${chalk.hex(THEME.dimMeta)("→")} ${msg}`));
+      results.push(`✓ ${step.label}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      process.stdout.write(
-        `\r  ${chalk.hex(THEME.critical)("✗")}  ${chalk.hex(THEME.text)(step.label)}  ${chalk.dim(msg)}\n`,
-      );
+      s.stop(chalk.hex(THEME.critical)(`✗ ${step.label}`));
+      log.warn(chalk.hex(THEME.warning)(msg));
+      results.push(`✗ ${step.label}`);
+      allPassed = false;
     }
   }
 
-  process.stdout.write("\n");
-  process.stdout.write(
-    `  ${chalk.hex(THEME.success)("ready.")}  ` +
-      chalk.dim("run ") +
-      chalk.hex(THEME.info)("ph scan") +
-      chalk.dim(" to analyse your project\n"),
-  );
-  process.stdout.write("\n");
+  // Outro
+  if (allPassed) {
+    outro(chalk.hex(THEME.success)("Initialization complete"));
+    process.stdout.write("\n");
+    process.stdout.write(
+      `  ${chalk.hex(THEME.text)("Next:")} ${chalk.hex(THEME.info)("ph scan")} ${chalk.dim("— analyse your codebase")}\n`,
+    );
+    process.stdout.write(
+      `  ${chalk.hex(THEME.text)("      ")}${chalk.hex(THEME.info)("ph ask")} ${chalk.dim('"explain this repo"')}\n`,
+    );
+    process.stdout.write(
+      `  ${chalk.hex(THEME.text)("      ")}${chalk.hex(THEME.info)("ph chat")} ${chalk.dim("— start a conversation")}\n`,
+    );
+    process.stdout.write("\n");
+  } else {
+    outro(chalk.hex(THEME.warning)("Initialized with warnings"));
+    process.stdout.write("\n");
+    process.stdout.write(
+      `  ${chalk.hex(THEME.text)("Review warnings above, then run")} ${chalk.hex(THEME.info)("ph scan")}\n`,
+    );
+    process.stdout.write("\n");
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

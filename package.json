@@ -1,6 +1,6 @@
 {
   "name": "project-healthy",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "AI-powered health score for software repositories - CLI tool with 8 parallel analysis modules",
   "main": "dist/index.js",
   "files": [
@@ -38,6 +38,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@clack/prompts": "^1.1.0",
     "@gitbeaker/rest": "^41.0.0",
     "@inquirer/prompts": "^8.3.2",
     "@octokit/rest": "^21.0.2",
