@@ -352,7 +352,7 @@ function renderTimeline(){
   h+='<div class="sec">Commit timeline — click hash for diff</div><div class="tl" id="tl">';
   if(!commits.length)h+='<div class="empty"><div class="empty-icon">📭</div>No commits for this file</div>';
   commits.forEach((c,i)=>{
-    h+='<div class="commit'+(i===0?' act':'')+'" data-idx="'+i+'"><div class="cc"><div class="ctop"><div class="cmsg">'+esc(c.message)+'</div><div class="chash" onclick="event.stopPropagation();toggleDiff('+i+',\''+c.hash+'\')">'+c.hash+'</div></div><div class="cmeta"><div class="cav" style="background:#1a3a6b;color:#58a6ff">'+esc(c.author.slice(0,2).toUpperCase())+'</div><div class="cauth">'+esc(c.author)+'</div><div class="ctime">'+esc(c.age)+'</div></div><div class="cchg"><span class="chg ca">+'+c.additions+'</span><span class="chg cd">-'+c.deletions+'</span></div><div class="diff'+(i===0&&diffs[c.hash]?' show':'')+'" id="df'+i+'">';
+    h+='<div class="commit'+(i===0?' act':'')+'" data-idx="'+i+'"><div class="cc"><div class="ctop"><div class="cmsg">'+esc(c.message)+'</div><div class="chash" onclick="event.stopPropagation();toggleDiff('+i+',&#39;'+c.hash+'&#39;)">'+c.hash+'</div></div><div class="cmeta"><div class="cav" style="background:#1a3a6b;color:#58a6ff">'+esc(c.author.slice(0,2).toUpperCase())+'</div><div class="cauth">'+esc(c.author)+'</div><div class="ctime">'+esc(c.age)+'</div></div><div class="cchg"><span class="chg ca">+'+c.additions+'</span><span class="chg cd">-'+c.deletions+'</span></div><div class="diff'+(i===0&&diffs[c.hash]?' show':'')+'" id="df'+i+'">';
     if(i===0&&diffs[c.hash])h+=renderDiff(c.hash,diffs[c.hash]);
     else h+='<div class="dh">Click hash <b>'+c.hash+'</b> for diff</div>';
     h+='</div></div></div>';

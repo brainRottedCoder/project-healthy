@@ -25,14 +25,15 @@ documentation updates.
 
 ## 🎯 Primary Goals
 
-- **Single Binary**: Fast, global installation (`npm install -g project-healthy`).
+- **Single Binary**: Fast, global installation
+  (`npm install -g project-healthy`).
 - **Parallel Analysis**: Eight distinct modules run concurrently (under 60s for
   typical projects).
 - **Unified Scoring**: 0–100 weighted health score with actionable insights.
-- **MegaLLM-powered AI**: High-quality LLM integrations routed through a
-  hosted backend (supporting Claude, GPT, Gemini, etc.).
-- **Zero-Config AI**: Install from npm and start using AI features immediately
-  — no API keys, no authentication, no setup.
+- **MegaLLM-powered AI**: High-quality LLM integrations routed through a hosted
+  backend (supporting Claude, GPT, Gemini, etc.).
+- **Zero-Config AI**: Install from npm and start using AI features immediately —
+  no API keys, no authentication, no setup.
 - **IDE & CI/CD Support**: VS Code extension included, alongside CI pipeline
   integration (e.g., block merges if score drops below a threshold).
 
@@ -59,10 +60,11 @@ support AI grounding and temporal state checks:
 
 ### 3. AI Backend Architecture
 
-AI calls are routed through a hosted backend at `https://project-healthy.vercel.app/v1`.
-The backend interacts with the MegaLLM API using secured keys on the server side.
-No third-party LLM API keys run on the developer's local machine. The CLI connects
-directly to the hosted backend with no authentication required.
+AI calls are routed through a hosted backend at
+`https://project-healthy.vercel.app/v1`. The backend interacts with the MegaLLM
+API using secured keys on the server side. No third-party LLM API keys run on
+the developer's local machine. The CLI connects directly to the hosted backend
+with no authentication required.
 
 ```
 CLI (ph) → https://project-healthy.vercel.app/v1 → MegaLLM API
@@ -98,22 +100,25 @@ CLI (ph) → https://project-healthy.vercel.app/v1 → MegaLLM API
 
 ## 🤖 AI Features (Powered by MegaLLM)
 
-All AI features are powered by the hosted backend and maintain grounded
-context via the local `.ph-cache/`. No API keys or authentication required.
+All AI features are powered by the hosted backend and maintain grounded context
+via the local `.ph-cache/`. No API keys or authentication required.
 
 1. **`ph ask` (Natural Language Interrogation)** Ask plain-English questions
-   about the codebase. Replaces generic advice with specific `file:line` citations.
+   about the codebase. Replaces generic advice with specific `file:line`
+   citations.
 2. **`ph review` (PR Review Co-pilot)** Senior-level review of a branch or PR.
    Highlights bugs, security gaps, untested paths, and complexity spikes based
    on actual test coverage.
 3. **`ph brief` (Onboarding Briefing Generator)** Automatically creates an
-   `ONBOARDING.md` containing architecture summaries, ownership maps, entry points, etc.
-4. **`ph chat` (Conversational Codebase REPL)** A persistent terminal chat session.
+   `ONBOARDING.md` containing architecture summaries, ownership maps, entry
+   points, etc.
+4. **`ph chat` (Conversational Codebase REPL)** A persistent terminal chat
+   session.
 5. **`ph fix` (Self-Healing Codebase Engine)** Automatically remediate findings
    from your last scan using MegaLLM patch generation. It triages, fixes, and
    validates findings, supporting auto-generated fixes (complexity refactoring,
-   dead exports, secret leaks, etc.).
-   Modes: `--auto` (fully automated fix loop), `--interactive`, `--dry-run`, `--ai`.
+   dead exports, secret leaks, etc.). Modes: `--auto` (fully automated fix
+   loop), `--interactive`, `--dry-run`, `--ai`.
 6. **Git Hook (Commit Doc Updater)** A surgical `post-commit` hook that
    automatically amends (or opens a PR to update) documentation sections that
    reference code you just changed.
@@ -145,8 +150,9 @@ cd your-project-folder
 ph init
 ```
 
-The CLI automatically uses our hosted backend (`https://project-healthy.vercel.app/v1`)
-for AI features. No API keys, no auth tokens, no environment variables to set.
+The CLI automatically uses our hosted backend
+(`https://project-healthy.vercel.app/v1`) for AI features. No API keys, no auth
+tokens, no environment variables to set.
 
 ### 1. Initialization / Interactive Shell
 
@@ -155,10 +161,11 @@ cd your-project-folder
 ph init
 ```
 
-`ph init` acts as your interactive CLI shell! It activates an interactive, continuous
-command loop. You can input commands straight from the prompt, remaining active until
-you press `Ctrl+C` or close the terminal. Additionally, it generates the `.ph-cache/`
-context folder, builds your `project-health.config.ts`, and installs the smart git hooks.
+`ph init` acts as your interactive CLI shell! It activates an interactive,
+continuous command loop. You can input commands straight from the prompt,
+remaining active until you press `Ctrl+C` or close the terminal. Additionally,
+it generates the `.ph-cache/` context folder, builds your
+`project-health.config.ts`, and installs the smart git hooks.
 
 ### 2. Running a Scan
 
@@ -185,8 +192,9 @@ via flexible wrapping utilities, ensuring metrics won't overlap.
 ph explore
 ```
 
-Launches a local web UI at `http://localhost:7878` with a file tree with activity heat maps,
-commit history for each file, click-to-expand diffs inline, and module health impact visualization.
+Launches a local web UI at `http://localhost:7878` with a file tree with
+activity heat maps, commit history for each file, click-to-expand diffs inline,
+and module health impact visualization.
 
 ### 5. Self-Healing Auto-Fix Engine Pipeline
 
@@ -230,7 +238,8 @@ ph chat
 
 ## 💻 Running the CLI Locally (From Source)
 
-If you'd like to extend `project-health` or run the uncompiled source code yourself:
+If you'd like to extend `project-health` or run the uncompiled source code
+yourself:
 
 ### Step 1. Clone & Build
 
@@ -306,3 +315,5 @@ Or set in `.env`:
 ```env
 PROJECT_HEALTH_BACKEND_URL="https://your-deployed-backend.com/v1"
 ```
+
+https://www.youtube.com/@walecriss
