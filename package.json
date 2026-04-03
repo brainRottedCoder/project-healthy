@@ -1,6 +1,6 @@
 {
   "name": "project-healthy",
-  "version": "3.2.1",
+  "version": "3.2.2",
   "description": "AI-powered health score for software repositories - CLI tool with 8 parallel analysis modules",
   "main": "dist/index.js",
   "files": [
