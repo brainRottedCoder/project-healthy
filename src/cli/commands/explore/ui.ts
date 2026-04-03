@@ -176,9 +176,9 @@ body{background:#0d1117;color:#c9d1d9;font-family:'SF Mono','Fira Code','Consola
     <div class="main">
       <div class="topbar">
         <div class="bc" id="bc">project overview</div>
-        <div class="pill"><b id="cc">0</b> commits</div>
-        <div class="pill"><b id="aa">0</b> authors</div>
-        <div class="pill">last: <b id="la">–</b></div>
+        <div class="pill"><span id="ccLabel">commits</span>: <b id="cc">0</b></div>
+        <div class="pill"><span id="aaLabel">authors</span>: <b id="aa">0</b></div>
+        <div class="pill"><span id="laLabel">last</span>: <b id="la">–</b></div>
         <button class="toolbar-btn" onclick="refreshFiles()">Refresh</button>
       </div>
       <div class="tab-bar" id="tabBar">
@@ -286,18 +286,25 @@ function renderLevel(container,entries,depth,filter){
 
 function hasMatch(entries,filter){for(const e of entries){if(e.type==='file'&&(e.name.toLowerCase().includes(filter)||e.path.toLowerCase().includes(filter)))return true;if(e.type==='dir'&&e.children&&hasMatch(e.children,filter))return true;}return false;}
 
+function setTopbarStats(primaryLabel,primaryValue,secondaryLabel,secondaryValue,lastLabel,lastValue){
+  $('ccLabel').textContent=primaryLabel;
+  $('cc').textContent=String(primaryValue ?? 0);
+  $('aaLabel').textContent=secondaryLabel;
+  $('aa').textContent=String(secondaryValue ?? 0);
+  $('laLabel').textContent=lastLabel;
+  $('la').textContent=lastValue || '-';
+}
+
 // ─── selection ────────────────────────────────────────────────
 async function selectFile(path){
   selected=path;diffs={};contentLoaded=false;tab='timeline';updateTabs();renderTree();
   const parts=path.split('/');
   $('bc').innerHTML=parts.map((p,i)=>i===parts.length-1?'<b style="color:#e3b341">'+esc(p)+'</b>':esc(p)).join(' / ');
-  $('content').innerHTML='<div class="loading">Loading commits…</div>';
+  $('content').innerHTML='<div class="loading">Loading commits...</div>';
   try{
     const r=await fetch('/api/commits/'+encodeURIComponent(path));if(!r.ok)throw new Error('HTTP '+r.status);
     commits=await r.json();
-    $('cc').textContent=commits.length;
-    $('aa').textContent=[...new Set(commits.map(c=>c.author))].length;
-    $('la').textContent=commits[0]?.age||'–';
+    setTopbarStats('commits',commits.length,'authors',[...new Set(commits.map(c=>c.author))].length,'last',commits[0]?.age||'-');
     renderTimeline();
   }catch(e){$('content').innerHTML='<div class="error">'+esc(e.message)+'</div>';}
 }
@@ -310,25 +317,28 @@ function updateTabs(){document.querySelectorAll('.tab').forEach(b=>b.classList.t
 function renderOverview(){
   $('bc').textContent='project overview';
   if(!analysis){$('content').innerHTML='<div class="empty">Run <b>ph scan</b> to generate analysis.</div>';return;}
+  const repoStats=analysis.repositoryStats||{};
+  setTopbarStats('active files',repoStats.activeFileCount||0,'dirty',repoStats.dirtyFileCount||0,'last commit',repoStats.lastCommitAge||'-');
   const d=analysis.descriptor||{},s=analysis.healthScore;
   const sc=s===null?'#8b949e':s>=85?'#56d364':s>=65?'#f0c84b':'#f85149';
+  const scanColor=analysis.scanStatus==='fresh'?'#56d364':analysis.scanStatus==='stale'?'#f0c84b':'#8b949e';
   const chip=(v,bg,tx)=>'<div class="score-chip" style="background:'+bg+';color:'+tx+'">'+v+'</div>';
   const sevBg=s=>s==='CRITICAL'?'rgba(248,81,73,.16)':s==='HIGH'?'rgba(240,136,62,.16)':s==='MEDIUM'?'rgba(240,200,75,.16)':'rgba(86,211,100,.16)';
   const sevCo=s=>s==='CRITICAL'?'#f85149':s==='HIGH'?'#f0883e':s==='MEDIUM'?'#f0c84b':'#56d364';
   const scBg=v=>v>=85?'rgba(86,211,100,.16)':v>=65?'rgba(240,200,75,.16)':'rgba(248,81,73,.16)';
   const scTx=v=>v>=85?'#56d364':v>=65?'#f0c84b':'#f85149';
 
-  const hot=(analysis.hotFiles||[]).map(f=>'<div class="row"><div class="row-main"><div class="row-title">'+esc(f.path)+'</div><div class="row-sub">'+esc(f.lastAge)+' · '+f.changeCount+' changes</div></div>'+chip(esc(f.heat.toUpperCase()),HC[f.heat],HT[f.heat])+'</div>').join('')||'<div class="empty">No hot files.</div>';
+  const hot=(analysis.hotFiles||[]).map(f=>'<div class="row"><div class="row-main"><div class="row-title">'+esc(f.path)+'</div><div class="row-sub">'+esc(f.lastAge)+' | '+f.changeCount+' historical changes</div></div>'+chip(esc(f.heat.toUpperCase()),HC[f.heat],HT[f.heat])+'</div>').join('')||'<div class="empty">No recent git activity found.</div>';
 
-  const findings=(analysis.topFindings||[]).map(f=>'<div class="row"><div class="row-main"><div class="row-title"><span class="sev" style="background:'+sevBg(f.severity)+';color:'+sevCo(f.severity)+'">'+esc(f.severity)+'</span>'+esc(f.type)+'</div><div class="row-sub">'+esc(f.message)+(f.file?' · '+esc(f.file):'')+'</div></div></div>').join('')||'<div class="empty">No findings.</div>';
+  const findings=(analysis.topFindings||[]).map(f=>'<div class="row"><div class="row-main"><div class="row-title"><span class="sev" style="background:'+sevBg(f.severity)+';color:'+sevCo(f.severity)+'">'+esc(f.severity)+'</span>'+esc(f.type)+'</div><div class="row-sub">'+esc(f.message)+(f.file?' | '+esc(f.file):'')+'</div></div></div>').join('')||'<div class="empty">No findings.</div>';
 
-  const mods=(analysis.moduleScores||[]).map(m=>'<div class="row"><div class="row-main"><div class="row-title">'+esc(m.moduleId+' '+m.moduleName)+'</div><div class="row-sub">'+esc(m.status)+' · '+m.findingCount+' findings</div></div>'+chip(m.score,scBg(m.score),scTx(m.score))+'</div>').join('')||'<div class="empty">No scan cached.</div>';
+  const mods=(analysis.moduleScores||[]).map(m=>'<div class="row"><div class="row-main"><div class="row-title">'+esc(m.moduleId+' '+m.moduleName)+'</div><div class="row-sub">'+esc(m.status)+' | '+m.findingCount+' findings</div></div>'+chip(m.score,scBg(m.score),scTx(m.score))+'</div>').join('')||'<div class="empty">Run <b>ph scan</b> to populate module scores.</div>';
 
   const actions=(analysis.topActions||[]).map(a=>'<div class="row"><div class="row-main"><div class="row-title">'+esc(a)+'</div></div></div>').join('')||'<div class="empty">No actions.</div>';
 
-  const syms=(analysis.symbolSummary?.sample||[]).map(s=>'<div class="row"><div class="row-main"><div class="row-title"><span class="symbol">'+esc(s.name)+'</span></div><div class="row-sub">'+esc(s.kind+' · '+s.file+':'+s.line)+'</div></div></div>').join('')||'<div class="empty">Run <b>ph scan</b> to build AST index.</div>';
+  const syms=(analysis.symbolSummary?.sample||[]).map(s=>'<div class="row"><div class="row-main"><div class="row-title"><span class="symbol">'+esc(s.name)+'</span></div><div class="row-sub">'+esc(s.kind+' | '+s.file+':'+s.line)+'</div></div></div>').join('')||'<div class="empty">Run <b>ph scan</b> to build AST index.</div>';
 
-  $('content').innerHTML='<div class="overview"><div class="hero"><div class="hero-title">'+esc(d.name||'Repository')+'</div><div class="hero-copy">'+esc(analysis.overview||'No overview.')+'</div><div class="hero-grid">'+metric('Health Score',s===null?'N/A':s,s===null?'Run ph scan':'latest scan',sc)+metric('Source Files',d.fileCount||0,d.language+' · '+(d.framework||'?'))+metric('Dependencies',d.dependencyCount||0,d.type+' · '+(d.moduleCount||0)+' dirs')+metric('Indexed Symbols',analysis.symbolSummary?.totalSymbols||0,(analysis.symbolSummary?.uniqueFiles||0)+' files')+'</div></div><div class="grid"><div class="panel"><h3>Hot Files</h3><div class="list">'+hot+'</div></div><div class="panel"><h3>Module Scores</h3><div class="list">'+mods+'</div></div><div class="panel"><h3>Top Findings</h3><div class="list">'+findings+'</div></div><div class="panel"><h3>Priority Actions</h3><div class="list">'+actions+'</div></div><div class="panel"><h3>Indexed Symbols</h3><div class="list">'+syms+'</div></div></div></div>';
+  $('content').innerHTML='<div class="overview"><div class="hero"><div class="hero-title">'+esc(d.name||'Repository')+'</div><div class="hero-copy">'+esc(analysis.overview||'No overview.')+'</div><div class="hero-grid">'+metric('Health Score',s===null?'N/A':s,analysis.scanSummary||'Run ph scan',sc)+metric('Scan Cache',(analysis.scanStatus||'missing').toUpperCase(),analysis.generatedAt?('generated '+analysis.generatedAt.slice(0,10)):'no cached scan',scanColor)+metric('Source Files',d.fileCount||0,d.language+' | '+(d.framework||'?'))+metric('Explorer Scope',d.visibleFileCount||0,(d.directoryCount||0)+' dirs | '+(d.docCount||0)+' docs | '+(d.configCount||0)+' config')+metric('Dependencies',d.dependencyCount||0,d.type+' | '+(d.moduleCount||0)+' code areas')+metric('Indexed Symbols',analysis.symbolSummary?.totalSymbols||0,(analysis.symbolSummary?.uniqueFiles||0)+' files')+'</div></div><div class="grid"><div class="panel"><h3>Hot Files</h3><div class="list">'+hot+'</div></div><div class="panel"><h3>Module Scores</h3><div class="list">'+mods+'</div></div><div class="panel"><h3>Top Findings</h3><div class="list">'+findings+'</div></div><div class="panel"><h3>Priority Actions</h3><div class="list">'+actions+'</div></div><div class="panel"><h3>Indexed Symbols</h3><div class="list">'+syms+'</div></div></div></div>';
 }
 
 function metric(l,v,sub,ac){return '<div class="metric"><div class="metric-label">'+esc(l)+'</div><div class="metric-value"'+(ac?' style="color:'+ac+'"':'')+'>'+esc(String(v))+'</div><div class="metric-sub">'+esc(sub||'')+'</div></div>';}

@@ -19,6 +19,7 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
+    "postinstall": "node dist/postinstall.js",
     "start:proxy": "node --import tsx src/proxy/server.ts",
     "test": "vitest run",
     "test:watch": "vitest",

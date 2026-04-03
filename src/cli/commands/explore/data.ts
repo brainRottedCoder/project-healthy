@@ -1,9 +1,16 @@
 // ph explore — data gathering and file tree construction
 
-import { simpleGit, type SimpleGit } from "simple-git";
+import type { SimpleGit, StatusResult } from "simple-git";
 import { join, relative } from "node:path";
-import { readFileSync, existsSync, statSync, readdirSync } from "node:fs";
+import { statSync, readdirSync } from "node:fs";
 import { createCacheManager } from "../../../cache/index.js";
+import type { HealthReport } from "../../../types/index.js";
+import {
+  isConfigFile,
+  isDocFile,
+  isSourceFile,
+  shouldIgnorePath,
+} from "../../../utils/ignore.js";
 import { createLogger } from "../../../utils/logger.js";
 import {
   analyzeProject,
@@ -30,6 +37,22 @@ function toFwd(p: string): string {
 
 function relPath(root: string, fullPath: string): string {
   return toFwd(relative(root, fullPath));
+}
+
+function compareIsoDatesDesc(a?: string, b?: string): number {
+  const aTime = a ? new Date(a).getTime() : 0;
+  const bTime = b ? new Date(b).getTime() : 0;
+  return bTime - aTime;
+}
+
+function latestIsoDate(a?: string | null, b?: string | null): string | null {
+  if (!a) return b ?? null;
+  if (!b) return a;
+  return compareIsoDatesDesc(a, b) <= 0 ? a : b;
+}
+
+function shouldIgnoreExploreEntry(path: string, isDir: boolean): boolean {
+  return shouldIgnorePath(isDir ? `${path}/__explore__` : path);
 }
 
 // ---------------------------------------------------------------------------
@@ -78,6 +101,27 @@ function calcHeat(changeCount: number, lastDate: string): HeatLevel {
   return "h5";
 }
 
+function getDirtyPathSet(status: StatusResult | null): Set<string> {
+  if (!status) return new Set<string>();
+
+  const paths = new Set<string>();
+  for (const file of [
+    ...status.modified,
+    ...status.created,
+    ...status.deleted,
+    ...status.staged,
+    ...status.not_added,
+    ...status.conflicted,
+  ]) {
+    paths.add(toFwd(file));
+  }
+  for (const rename of status.renamed) {
+    paths.add(toFwd(rename.from));
+    paths.add(toFwd(rename.to));
+  }
+  return paths;
+}
+
 // ---------------------------------------------------------------------------
 // Git data gathering
 // ---------------------------------------------------------------------------
@@ -96,7 +140,7 @@ export async function gatherGitFileInfo(
       "log",
       "--name-only",
       "--format=__COMMIT__%H|%an|%aI|%s",
-      "--diff-filter=AM",
+      "--diff-filter=AMR",
       "-200",
     ]);
     const lines = raw.replace(/\r\n/g, "\n").split("\n");
@@ -150,16 +194,20 @@ export async function getFileCommits(
           .catch(() => null);
         const base = parent ? `${c.hash}~1` : EMPTY_TREE;
         const stats = await git.diff([
+          "--numstat",
           base,
           c.hash,
           "--",
           filePath,
-          "--numstat",
         ]);
-        const parts = stats.trim().split(/\s+/);
+        const [firstLine = ""] = stats
+          .trim()
+          .split("\n")
+          .filter(Boolean);
+        const parts = firstLine.split(/\s+/);
         if (parts.length >= 2) {
-          additions = parseInt(parts[0]) || 0;
-          deletions = parseInt(parts[1]) || 0;
+          additions = parseInt(parts[0], 10) || 0;
+          deletions = parseInt(parts[1], 10) || 0;
         }
       } catch {
         /* stats unavailable */
@@ -224,15 +272,6 @@ export async function getFileContent(
 // File tree
 // ---------------------------------------------------------------------------
 
-const IGNORED_PREFIXES = new Set([
-  "node_modules",
-  "dist",
-  "build",
-  ".git",
-  "ai-proxy",
-  "__tests__",
-]);
-
 /**
  * Walk the filesystem and build a hierarchical file tree enriched with git metadata.
  */
@@ -252,7 +291,6 @@ export function buildFileTree(
     }
 
     for (const name of items) {
-      if (name.startsWith(".") || IGNORED_PREFIXES.has(name)) continue;
       const full = join(dir, name);
       const rel = relPath(projectRoot, full);
 
@@ -262,6 +300,8 @@ export function buildFileTree(
       } catch {
         continue;
       }
+
+      if (shouldIgnoreExploreEntry(rel, st.isDirectory())) continue;
 
       if (st.isDirectory()) {
         if (!dirs.has(full)) {
@@ -395,49 +435,209 @@ export function flattenFiles(entries: FileEntry[]): FileEntry[] {
   return out;
 }
 
-function buildAnalysis(
+function inferModuleRoot(filePath: string): string | null {
+  const parts = filePath.split("/").filter(Boolean);
+  if (parts.length === 0) return null;
+
+  if (parts[0] === "src") {
+    if (parts[1] === "modules" && parts[2]) {
+      return `src/modules/${parts[2]}`;
+    }
+    if (parts[1]) {
+      return `src/${parts[1]}`;
+    }
+    return "src";
+  }
+
+  if (
+    ["packages", "apps", "services", "libs", "ai-proxy"].includes(parts[0]) &&
+    parts[1]
+  ) {
+    return `${parts[0]}/${parts[1]}`;
+  }
+
+  return parts[0];
+}
+
+function inferModuleCount(sourceFilePaths: string[]): number {
+  const roots = new Set<string>();
+  for (const filePath of sourceFilePaths) {
+    if (/^(tests?|__tests__)\//.test(filePath)) continue;
+    const root = inferModuleRoot(filePath);
+    if (root) roots.add(root);
+  }
+  return roots.size;
+}
+
+function isUsableLastScan(lastScan: HealthReport | null): lastScan is HealthReport {
+  return Boolean(
+    lastScan &&
+      typeof lastScan.score === "number" &&
+      Array.isArray(lastScan.modules) &&
+      lastScan.modules.length > 0,
+  );
+}
+
+function buildScanSummary(
+  lastScan: HealthReport | null,
+  latestCommitDate: string | null,
+  dirtyFileCount: number,
+): Pick<
+  ExploreAnalysis,
+  "healthScore" | "generatedAt" | "scanStatus" | "scanSummary"
+> {
+  if (!isUsableLastScan(lastScan)) {
+    return {
+      healthScore: null,
+      generatedAt: null,
+      scanStatus: "missing",
+      scanSummary: "Run ph scan to attach module scores, findings, and AST data.",
+    };
+  }
+
+  const generatedAt = lastScan.generatedAt ?? null;
+  const scanTime = generatedAt ? new Date(generatedAt).getTime() : 0;
+  const latestCommitTime = latestCommitDate
+    ? new Date(latestCommitDate).getTime()
+    : 0;
+  const staleBecauseOfCommits = latestCommitTime > scanTime;
+  const staleBecauseOfDirtyFiles = dirtyFileCount > 0;
+
+  if (!staleBecauseOfCommits && !staleBecauseOfDirtyFiles) {
+    return {
+      healthScore: lastScan.score,
+      generatedAt,
+      scanStatus: "fresh",
+      scanSummary: `Scan cache is current (${formatAge(generatedAt ?? "")}).`,
+    };
+  }
+
+  const reasons: string[] = [];
+  if (staleBecauseOfCommits && latestCommitDate) {
+    reasons.push(`newer commits exist (${formatAge(latestCommitDate)})`);
+  }
+  if (staleBecauseOfDirtyFiles) {
+    reasons.push(
+      `${dirtyFileCount} unscanned local file${dirtyFileCount === 1 ? "" : "s"}`,
+    );
+  }
+
+  return {
+    healthScore: lastScan.score,
+    generatedAt,
+    scanStatus: "stale",
+    scanSummary: `Cached scan is ${formatAge(generatedAt ?? "")}; ${reasons.join(" and ")}.`,
+  };
+}
+
+function boostHeatForPendingChanges(
+  existingHeat: HeatLevel,
+  changeCount: number,
+): HeatLevel {
+  if (changeCount > 0) return "h1";
+  return heatRank(existingHeat) >= heatRank("h2") ? existingHeat : "h2";
+}
+
+function severityRank(severity: string): number {
+  return { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 }[severity] ?? 0;
+}
+
+export function buildAnalysis(
   projectRoot: string,
   files: FileEntry[],
   astIndex: Record<string, { file: string; line: number; kind: string }> | null,
-  lastScan: any,
+  lastScan: HealthReport | null,
+  status: StatusResult | null = null,
 ): ExploreAnalysis {
   const desc = analyzeProject(projectRoot);
-  const flat = flattenFiles(files).filter((e) => e.type === "file");
+  const flatEntries = flattenFiles(files);
+  const flatFiles = flatEntries.filter((e) => e.type === "file");
+  const sourceFiles = flatFiles.filter((e) => isSourceFile(e.path));
+  const docFiles = flatFiles.filter((e) => isDocFile(e.path));
+  const configFiles = flatFiles.filter((e) => isConfigFile(e.path));
+  const directoryCount = flatEntries.filter((e) => e.type === "dir").length;
+  const moduleCount = inferModuleCount(sourceFiles.map((file) => file.path));
+  const latestCommitDate = flatFiles.reduce<string | null>(
+    (latest, entry) => latestIsoDate(latest, entry.lastCommit?.date),
+    null,
+  );
+  const dirtyPaths = getDirtyPathSet(status);
+  const dirtyFileCount = dirtyPaths.size;
 
-  const hotFiles = flat
-    .sort(
-      (a, b) =>
-        heatRank(b.heat) - heatRank(a.heat) || b.changeCount - a.changeCount,
-    )
+  const hotFiles = flatFiles
+    .filter((entry) => entry.changeCount > 0 || dirtyPaths.has(entry.path))
+    .sort((a, b) => {
+      const aDirty = dirtyPaths.has(a.path) ? 1 : 0;
+      const bDirty = dirtyPaths.has(b.path) ? 1 : 0;
+      return (
+        bDirty - aDirty ||
+        heatRank(b.heat) - heatRank(a.heat) ||
+        b.changeCount - a.changeCount ||
+        compareIsoDatesDesc(a.lastCommit?.date, b.lastCommit?.date) ||
+        a.path.localeCompare(b.path)
+      );
+    })
     .slice(0, 8)
-    .map((e) => ({
-      path: e.path,
-      changeCount: e.changeCount,
-      heat: e.heat,
-      lastAge: e.lastCommit?.age ?? "unknown",
-    }));
+    .map((entry) => {
+      const pendingChanges = dirtyPaths.has(entry.path);
+      return {
+        path: entry.path,
+        changeCount: entry.changeCount,
+        heat: pendingChanges
+          ? boostHeatForPendingChanges(entry.heat, entry.changeCount)
+          : entry.heat,
+        lastAge: pendingChanges
+          ? entry.lastCommit?.age
+            ? `pending changes | last commit ${entry.lastCommit.age}`
+            : "pending changes"
+          : entry.lastCommit?.age ?? "unknown",
+        pendingChanges,
+      };
+    });
 
-  const symEntries = Object.entries(astIndex ?? {});
+  const usableScan = isUsableLastScan(lastScan) ? lastScan : null;
+  const scanSummary = buildScanSummary(lastScan, latestCommitDate, dirtyFileCount);
+  const symEntries = Object.entries(astIndex ?? {}).sort((a, b) => {
+    const byFile = a[1].file.localeCompare(b[1].file);
+    if (byFile !== 0) return byFile;
+    if (a[1].line !== b[1].line) return a[1].line - b[1].line;
+    return a[0].localeCompare(b[0]);
+  });
   const uniqueFiles = new Set(
     symEntries.map(([, s]) => s.file).filter(Boolean),
   );
+  const descriptor = {
+    name: desc.name,
+    type: desc.type,
+    language: desc.language,
+    framework: desc.framework,
+    fileCount: sourceFiles.length,
+    visibleFileCount: flatFiles.length,
+    docCount: docFiles.length,
+    configCount: configFiles.length,
+    directoryCount,
+    dependencyCount: desc.dependencyCount,
+    moduleCount,
+    entryPoints: desc.entryPoints,
+  };
 
   return {
-    descriptor: {
-      name: desc.name,
-      type: desc.type,
-      language: desc.language,
-      framework: desc.framework,
-      fileCount: desc.fileCount,
-      dependencyCount: desc.dependencyCount,
-      moduleCount: desc.moduleCount,
-    },
-    overview: formatProjectOverview(desc),
-    healthScore: lastScan?.score ?? null,
-    generatedAt: lastScan?.generatedAt ?? null,
+    descriptor,
+    overview: formatProjectOverview({
+      ...desc,
+      fileCount: sourceFiles.length,
+      moduleCount,
+    }),
+    healthScore: scanSummary.healthScore,
+    generatedAt: scanSummary.generatedAt,
+    scanStatus: scanSummary.scanStatus,
+    scanSummary: scanSummary.scanSummary,
     hotFiles,
     moduleScores:
-      lastScan?.modules?.map((m: any) => ({
+      usableScan?.modules
+        ?.slice()
+        .sort((a, b) => a.score - b.score || a.moduleId.localeCompare(b.moduleId))
+        .map((m) => ({
         moduleId: m.moduleId,
         moduleName: m.moduleName,
         score: m.score,
@@ -445,13 +645,31 @@ function buildAnalysis(
         findingCount: m.findings?.length ?? 0,
       })) ?? [],
     topFindings:
-      lastScan?.findings?.slice(0, 8).map((f: any) => ({
+      usableScan?.findings
+        ?.slice()
+        .sort(
+          (a, b) =>
+            severityRank(b.severity) - severityRank(a.severity) ||
+            a.type.localeCompare(b.type) ||
+            (a.file ?? "").localeCompare(b.file ?? ""),
+        )
+        .slice(0, 8)
+        .map((f) => ({
         severity: f.severity,
         type: f.type,
         message: f.message,
         file: f.file,
       })) ?? [],
-    topActions: lastScan?.topActions?.slice(0, 5) ?? [],
+    topActions: usableScan?.topActions?.slice(0, 5) ?? [],
+    repositoryStats: {
+      activeFileCount: new Set(
+        flatFiles
+          .filter((entry) => entry.changeCount > 0 || dirtyPaths.has(entry.path))
+          .map((entry) => entry.path),
+      ).size,
+      dirtyFileCount,
+      lastCommitAge: latestCommitDate ? formatAge(latestCommitDate) : null,
+    },
     symbolSummary: {
       totalSymbols: symEntries.length,
       uniqueFiles: uniqueFiles.size,
@@ -474,17 +692,24 @@ export async function buildSnapshot(
   projectRoot: string,
 ): Promise<ExploreSnapshot> {
   const cache = createCacheManager(projectRoot);
-  const [gitMap, astIndex, lastScan] = await Promise.all([
+  const [gitMap, astIndex, lastScan, status] = await Promise.all([
     gatherGitFileInfo(git),
     cache.getAstIndex(),
     cache.getLastScan(),
+    git.status().catch(() => null),
   ]);
 
   const tree = buildFileTree(projectRoot, gitMap);
   return {
     files: tree,
     astIndex: (astIndex as any) ?? {},
-    analysis: buildAnalysis(projectRoot, tree, astIndex as any, lastScan),
+    analysis: buildAnalysis(
+      projectRoot,
+      tree,
+      astIndex as any,
+      lastScan,
+      status,
+    ),
     projectRoot: toFwd(projectRoot),
   };
 }

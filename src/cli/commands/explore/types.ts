@@ -35,6 +35,7 @@ export interface HotFile {
   changeCount: number;
   heat: HeatLevel;
   lastAge: string;
+  pendingChanges?: boolean;
 }
 
 export interface AnalysisSymbol {
@@ -51,12 +52,19 @@ export interface ExploreAnalysis {
     language: string;
     framework: string;
     fileCount: number;
+    visibleFileCount: number;
+    docCount: number;
+    configCount: number;
+    directoryCount: number;
     dependencyCount: number;
     moduleCount: number;
+    entryPoints: string[];
   };
   overview: string;
   healthScore: number | null;
   generatedAt: string | null;
+  scanStatus: "missing" | "stale" | "fresh";
+  scanSummary: string;
   hotFiles: HotFile[];
   moduleScores: Array<{
     moduleId: string;
@@ -72,6 +80,11 @@ export interface ExploreAnalysis {
     file?: string;
   }>;
   topActions: string[];
+  repositoryStats: {
+    activeFileCount: number;
+    dirtyFileCount: number;
+    lastCommitAge: string | null;
+  };
   symbolSummary: {
     totalSymbols: number;
     uniqueFiles: number;
