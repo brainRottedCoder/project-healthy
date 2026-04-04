@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { v4 as uuidv4 } from "uuid";
 import { config } from "../config.js";
 import { rateLimitMiddleware } from "../middleware/rate-limit.js";
-import { executeChat, buildChatParams } from "../services/chat.js";
+import { executeChat, buildChatParams, createChatCompletionWithFallback } from "../services/chat.js";
 
 const router = Router();
 
@@ -42,7 +42,7 @@ router.post("/chat/completions", async (req: Request, res: Response) => {
       res.setHeader("Connection", "keep-alive");
       res.setHeader("X-Request-Id", uuidv4());
 
-      const chatStream = await client.chat.completions.create({
+      const chatStream = await createChatCompletionWithFallback(client, resolvedModel, {
         ...params,
         stream: true,
       });
@@ -59,7 +59,7 @@ router.post("/chat/completions", async (req: Request, res: Response) => {
       res.write("data: [DONE]\n\n");
       res.end();
     } else {
-      const completion = await client.chat.completions.create({
+      const completion = await createChatCompletionWithFallback(client, resolvedModel, {
         ...params,
         stream: false,
       });
@@ -115,8 +115,7 @@ router.post("/chat/ask", async (req: Request, res: Response) => {
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
 
-    const chatStream = await client.chat.completions.create({
-      model,
+    const chatStream = await createChatCompletionWithFallback(client, model, {
       messages,
       temperature: config.temperature,
       max_tokens: config.maxTokens,
@@ -195,8 +194,7 @@ Provide specific file:line citations and remediation suggestions.`;
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
 
-    const chatStream = await client.chat.completions.create({
-      model,
+    const chatStream = await createChatCompletionWithFallback(client, model, {
       messages,
       temperature: config.temperature,
       max_tokens: config.maxTokens,
@@ -279,8 +277,7 @@ Use the provided context to make it accurate.`,
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
 
-    const chatStream = await client.chat.completions.create({
-      model,
+    const chatStream = await createChatCompletionWithFallback(client, model, {
       messages,
       temperature: config.temperature,
       max_tokens: config.maxTokens,

@@ -2,10 +2,12 @@ import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/index.js";
 import {
   createAIClient,
+  createGeminiClient,
   MODEL,
   MAX_TOKENS,
   TEMPERATURE,
 } from "../ai-client.js";
+import { config } from "../config.js";
 
 export interface ChatRequest {
   messages: ChatCompletionMessageParam[];
@@ -81,3 +83,25 @@ export function buildChatParams(
     max_tokens: overrides?.max_tokens ?? MAX_TOKENS,
   };
 }
+
+/**
+ * Creates chat completion with a fallback to Gemini if MegaLLM fails.
+ */
+export async function createChatCompletionWithFallback(
+  primaryClient: OpenAI,
+  primaryModel: string,
+  params: Omit<OpenAI.Chat.ChatCompletionCreateParams, "model">,
+): Promise<any> {
+  try {
+    return await primaryClient.chat.completions.create({ ...params, model: primaryModel } as OpenAI.Chat.ChatCompletionCreateParams);
+  } catch (error) {
+    console.error("[MegaLLM Failed]", error);
+    if (config.geminiApiKey) {
+      console.log(`[Falling back to Gemini model: ${config.geminiModel}]`);
+      const fallbackClient = createGeminiClient(config.geminiApiKey, config.geminiBaseUrl);
+      return await fallbackClient.chat.completions.create({ ...params, model: config.geminiModel } as OpenAI.Chat.ChatCompletionCreateParams);
+    }
+    throw error;
+  }
+}
+

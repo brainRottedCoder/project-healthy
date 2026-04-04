@@ -18,3 +18,12 @@ export function createAIClient(apiKey: string): OpenAI {
     maxRetries: 3,
   });
 }
+
+export function createGeminiClient(apiKey: string, baseURL: string): OpenAI {
+  return new OpenAI({
+    apiKey,
+    baseURL,
+    timeout: TIMEOUT_MS,
+    maxRetries: 3,
+  });
+}

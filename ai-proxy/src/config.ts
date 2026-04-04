@@ -24,6 +24,9 @@ export const config = {
   megallmApiKey: required("MEGALLM_API_KEY"),
   megallmBaseUrl: optional("MEGALLM_BASE_URL", "https://ai.megallm.io/v1"),
   model: optional("MEGALLM_MODEL", "claude-sonnet-4-6"),
+  geminiApiKey: optional("GEMINI_API_KEY", ""), // Optional, only needed for fallback
+  geminiBaseUrl: optional("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai/"),
+  geminiModel: optional("GEMINI_MODEL", "gemini-2.5-pro"),
   maxTokens: parseInt(optional("MEGALLM_MAX_TOKENS", "60000"), 10),
   temperature: parseFloat(optional("MEGALLM_TEMPERATURE", "0.7")),
   timeout: parseInt(optional("MEGALLM_TIMEOUT", "120000"), 10),
