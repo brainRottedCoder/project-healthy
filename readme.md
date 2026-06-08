@@ -315,5 +315,3 @@ Or set in `.env`:
 ```env
 PROJECT_HEALTH_BACKEND_URL="https://your-deployed-backend.com/v1"
 ```
-
-https://www.youtube.com/@walecriss
