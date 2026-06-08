@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 
-export const MODEL = process.env.MEGALLM_MODEL || "claude-sonnet-4-6";
+export const MODEL = process.env.MEGALLM_MODEL || "openai-gpt-oss-120b";
 export const BASE_URL =
   process.env.MEGALLM_BASE_URL || "https://ai.megallm.io/v1";
 export const MAX_TOKENS = parseInt(
@@ -15,7 +15,7 @@ export function createAIClient(apiKey: string): OpenAI {
     apiKey,
     baseURL: BASE_URL,
     timeout: TIMEOUT_MS,
-    maxRetries: 3,
+    maxRetries: 0,
   });
 }
 
@@ -24,6 +24,6 @@ export function createGeminiClient(apiKey: string, baseURL: string): OpenAI {
     apiKey,
     baseURL,
     timeout: TIMEOUT_MS,
-    maxRetries: 3,
-  });
+    maxRetries: 0,
+    });
 }
